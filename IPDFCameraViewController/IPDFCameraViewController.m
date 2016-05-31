@@ -18,17 +18,19 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 
 #import <GLKit/GLKit.h>
+#import "Util.h"
 
 @interface IPDFCameraViewController () <AVCaptureVideoDataOutputSampleBufferDelegate>
 
 @property (nonatomic,strong) AVCaptureSession *captureSession;
 @property (nonatomic,strong) AVCaptureDevice *captureDevice;
 @property (nonatomic,strong) EAGLContext *context;
-
+@property (nonatomic,strong) id <IPDFCameraViewControllerDelegate> viewControllerDelegate;
 @property (nonatomic, strong) AVCaptureStillImageOutput* stillImageOutput;
 
 @property (nonatomic, assign) BOOL forceStop;
 @property (nonatomic, assign) CGSize intrinsicContentSize;
+
 
 @end
 
@@ -60,12 +62,22 @@
     _captureQueue = dispatch_queue_create("com.instapdf.AVCameraCaptureQueue", DISPATCH_QUEUE_SERIAL);
 }
 
+- (void) setDelegate: (id <IPDFCameraViewControllerDelegate>) aDelegate
+{
+    self.viewControllerDelegate = aDelegate;
+}
+
 - (void)_backgroundMode
 {
     self.forceStop = YES;
 }
 
 - (void)_foregroundMode
+{
+    self.forceStop = NO;
+}
+
+- (void) resumeCapture
 {
     self.forceStop = NO;
 }
@@ -187,6 +199,14 @@
             _imageDedectionConfidence += .5;
             
             image = [self drawHighlightOverlayForPoints:image topLeft:_borderDetectLastRectangleFeature.topLeft topRight:_borderDetectLastRectangleFeature.topRight bottomLeft:_borderDetectLastRectangleFeature.bottomLeft bottomRight:_borderDetectLastRectangleFeature.bottomRight];
+            if (rectangleDetectionConfidenceHighEnough(_imageDedectionConfidence)){
+                self.forceStop = YES;
+                [self captureImageWithCompletionHander:^(NSString *imageFilePath)
+                 {
+                     [self.viewControllerDelegate takeSnapshotWithPath:imageFilePath];
+                 }];
+                return;
+            }
         }
         else
         {
@@ -358,6 +378,9 @@
                  enhancedImage = [self filteredImageUsingContrastFilterOnImage:enhancedImage];
              }
              
+             NSLog(@"%d, %f", weakSelf.isBorderDetectionEnabled, _imageDedectionConfidence);
+             
+             
              if (weakSelf.isBorderDetectionEnabled && rectangleDetectionConfidenceHighEnough(_imageDedectionConfidence))
              {
                  CIRectangleFeature *rectangleFeature = [self biggestRectangleInRectangles:[[self highAccuracyRectangleDetector] featuresInImage:enhancedImage]];
@@ -465,13 +488,13 @@ void saveCGImageAsJPEGToFilePath(CGImageRef imageRef, NSString *filePath)
     return [image imageByApplyingFilter:@"CIPerspectiveCorrection" withInputParameters:rectangleCoordinates];
 }
 
-- (CIDetector *)rectangleDetetor
+- (CIDetector *)rectangleDetector
 {
     static CIDetector *detector = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^
     {
-          detector = [CIDetector detectorOfType:CIDetectorTypeRectangle context:nil options:@{CIDetectorAccuracy : CIDetectorAccuracyLow,CIDetectorTracking : @(YES)}];
+          detector = [CIDetector detectorOfType:CIDetectorTypeRectangle context:nil options:@{CIDetectorAccuracy : CIDetectorAccuracyLow, CIDetectorTracking : @(YES)}];
     });
     return detector;
 }
@@ -482,7 +505,14 @@ void saveCGImageAsJPEGToFilePath(CGImageRef imageRef, NSString *filePath)
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^
     {
-        detector = [CIDetector detectorOfType:CIDetectorTypeRectangle context:nil options:@{CIDetectorAccuracy : CIDetectorAccuracyHigh}];
+        detector = [CIDetector detectorOfType:CIDetectorTypeRectangle
+                                      context:nil
+                                      options:@{
+                                                CIDetectorAccuracy : CIDetectorAccuracyHigh,
+                                                CIDetectorTracking : @(YES),
+                                                CIDetectorMinFeatureSize: @(0.7),
+                                                CIDetectorNumberOfAngles: @(5)
+                                                }];
     });
     return detector;
 }
@@ -490,10 +520,9 @@ void saveCGImageAsJPEGToFilePath(CGImageRef imageRef, NSString *filePath)
 - (CIRectangleFeature *)biggestRectangleInRectangles:(NSArray *)rectangles
 {
     if (![rectangles count]) return nil;
+    float minHalfPerimiter = 0;
     
-    float halfPerimiterValue = 0;
-    
-    CIRectangleFeature *biggestRectangle = [rectangles firstObject];
+    CIRectangleFeature *biggestRectangle = nil;
     
     for (CIRectangleFeature *rect in rectangles)
     {
@@ -507,13 +536,13 @@ void saveCGImageAsJPEGToFilePath(CGImageRef imageRef, NSString *filePath)
         
         CGFloat currentHalfPerimiterValue = height + width;
         
-        if (halfPerimiterValue < currentHalfPerimiterValue)
+        if (currentHalfPerimiterValue > minHalfPerimiter)
         {
-            halfPerimiterValue = currentHalfPerimiterValue;
+            minHalfPerimiter = currentHalfPerimiterValue;
             biggestRectangle = rect;
         }
     }
-    
+
     return biggestRectangle;
 }
 

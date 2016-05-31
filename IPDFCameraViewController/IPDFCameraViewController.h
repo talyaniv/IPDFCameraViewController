@@ -7,6 +7,7 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "ViewController.h"
 
 typedef NS_ENUM(NSInteger,IPDFCameraViewType)
 {
@@ -17,7 +18,6 @@ typedef NS_ENUM(NSInteger,IPDFCameraViewType)
 @interface IPDFCameraViewController : UIView
 
 - (void)setupCameraView;
-
 - (void)start;
 - (void)stop;
 
@@ -29,5 +29,9 @@ typedef NS_ENUM(NSInteger,IPDFCameraViewType)
 - (void)focusAtPoint:(CGPoint)point completionHandler:(void(^)())completionHandler;
 
 - (void)captureImageWithCompletionHander:(void(^)(NSString *imageFilePath))completionHandler;
+
+- (void)setDelegate: (id <IPDFCameraViewControllerDelegate>) aDelegate;
+
+- (void)resumeCapture;
 
 @end

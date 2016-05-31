@@ -37,6 +37,7 @@
 
 - (void)viewDidAppear:(BOOL)animated
 {
+    [self.cameraViewController setDelegate:(id)self];
     [self.cameraViewController start];
 }
 
@@ -132,22 +133,28 @@
     
     [self.cameraViewController captureImageWithCompletionHander:^(NSString *imageFilePath)
     {
-        UIImageView *captureImageView = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:imageFilePath]];
-        captureImageView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
-        captureImageView.frame = CGRectOffset(weakSelf.view.bounds, 0, -weakSelf.view.bounds.size.height);
-        captureImageView.alpha = 1.0;
-        captureImageView.contentMode = UIViewContentModeScaleAspectFit;
-        captureImageView.userInteractionEnabled = YES;
-        [weakSelf.view addSubview:captureImageView];
-        
-        UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc] initWithTarget:weakSelf action:@selector(dismissPreview:)];
-        [captureImageView addGestureRecognizer:dismissTap];
-        
-        [UIView animateWithDuration:0.7 delay:0.0 usingSpringWithDamping:0.8 initialSpringVelocity:0.7 options:UIViewAnimationOptionAllowUserInteraction animations:^
-        {
-            captureImageView.frame = weakSelf.view.bounds;
-        } completion:nil];
+        [weakSelf takeSnapshotWithPath:imageFilePath];
     }];
+}
+
+-(void) takeSnapshotWithPath: (NSString *) imageFilePath
+{
+    __weak typeof(self) weakSelf = self;
+    UIImageView *captureImageView = [[UIImageView alloc] initWithImage:[UIImage imageWithContentsOfFile:imageFilePath]];
+    captureImageView.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.7];
+    captureImageView.frame = CGRectOffset(weakSelf.view.bounds, 0, -weakSelf.view.bounds.size.height);
+    captureImageView.alpha = 1.0;
+    captureImageView.contentMode = UIViewContentModeScaleAspectFit;
+    captureImageView.userInteractionEnabled = YES;
+    [weakSelf.view addSubview:captureImageView];
+    
+    UITapGestureRecognizer *dismissTap = [[UITapGestureRecognizer alloc] initWithTarget:weakSelf action:@selector(dismissPreview:)];
+    [captureImageView addGestureRecognizer:dismissTap];
+    
+    [UIView animateWithDuration:0.7 delay:0.0 usingSpringWithDamping:0.8 initialSpringVelocity:0.7 options:UIViewAnimationOptionAllowUserInteraction animations:^
+     {
+         captureImageView.frame = weakSelf.view.bounds;
+     } completion:nil];
 }
 
 - (void)dismissPreview:(UITapGestureRecognizer *)dismissTap
@@ -159,6 +166,7 @@
     completion:^(BOOL finished)
     {
         [dismissTap.view removeFromSuperview];
+        [self.cameraViewController resumeCapture];
     }];
 }
 

@@ -8,7 +8,13 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController
+@protocol IPDFCameraViewControllerDelegate 
+
+-(void) takeSnapshotWithPath: (NSString *) imageFilePath;
+
+@end
+
+@interface ViewController <IPDFCameraViewControllerDelegate> : UIViewController
 
 
 @end
