@@ -6,6 +6,8 @@
 //  Copyright (c) 2015 mackh ag. All rights reserved.
 //
 
+#define AUTO_SNAPSHOT true
+
 #import "IPDFCameraViewController.h"
 
 #import <AVFoundation/AVFoundation.h>
@@ -199,6 +201,8 @@
             _imageDedectionConfidence += .5;
             
             image = [self drawHighlightOverlayForPoints:image topLeft:_borderDetectLastRectangleFeature.topLeft topRight:_borderDetectLastRectangleFeature.topRight bottomLeft:_borderDetectLastRectangleFeature.bottomLeft bottomRight:_borderDetectLastRectangleFeature.bottomRight];
+            
+#if AUTO_SNAPSHOT
             if (rectangleDetectionConfidenceHighEnough(_imageDedectionConfidence)){
                 self.forceStop = YES;
                 [self captureImageWithCompletionHander:^(NSString *imageFilePath)
@@ -207,6 +211,7 @@
                  }];
                 return;
             }
+#endif
         }
         else
         {
